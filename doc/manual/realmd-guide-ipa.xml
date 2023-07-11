@@ -1,0 +1,164 @@
+<?xml version="1.0"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+               "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
+[
+  <!ENTITY % local.common.attrib "xmlns:xi  CDATA  #FIXED 'http://www.w3.org/2003/XInclude'">
+]>
+
+<chapter id="guide-ipa">
+	<title>Using with IPA</title>
+
+	<para><command>realmd</command> can discover IPA domains and join
+	the current computer as an account on a domain. This allows using domain
+	users locally, and log into the local machine with IPA domain
+	credentials.</para>
+
+	<section id="discovering-ipa-domains">
+		<title>Discovering IPA domains</title>
+		<para><command>realmd</command> discovers which domains or
+		realms it can use or configure. It can discover and identify
+		IPA domains by looking up the appropriate DNS SRV
+		records and by connecting to the domain LDAP server.</para>
+
+		<para>The following DNS SRV records are required to be present
+		for <command>realmd</command> to identify a provided realm as
+		an Kerberos domain.</para>
+
+		<informalexample>
+<screen>
+# In this example the IPA domain is 'domain.example.com'
+<emphasis>_ldap._tcp.</emphasis>domain.example.com.
+</screen>
+		</informalexample>
+
+		<para>In addition <command>realmd</command> connects to the LDAP
+		server on the IPA domain server's on port 389 and reads the
+		Root DSE information about the domain.</para>
+
+		<para>To see how <command>realmd</command> is discovering a
+		particular domain name, try a command like the following. Using
+		the <option>--verbose</option> argument displays verbose
+		discovery information.</para>
+
+		<informalexample>
+<screen>
+$ <command>realm --verbose discover domain.example.com</command>
+ * Resolving: _ldap._tcp.dc._msdcs.domain.example.com
+ * Resolving: _ldap._tcp.domain.example.com
+ * Performing LDAP DSE lookup on: 192.168.10.22
+ * Successfully discovered: domain.example.com
+...
+</screen>
+		</informalexample>
+
+		<para>In addition a IPA domain server's host name
+		or IP address may be specified.</para>
+	</section>
+
+	<section id="guide-ipa-client">
+		<title>IPA client software</title>
+		<para>As part of configuring an IPA  domain for use
+		on the local computer, <command>realmd</command> will install and
+		configure client software to enable domain accounts to be used on
+		the local computer.</para>
+
+		<para>For a IPA domain this is
+		<ulink url="https://fedorahosted.org/sssd/">SSSD</ulink>.</para>
+
+	</section>
+
+	<section id="guide-ipa-join">
+		<title>Joining a IPA domain</title>
+
+		<para>To join a IPA domain with <command>realmd</command>
+		you can use the <link linkend="realm"><command>realm</command></link>
+		command line tool:</para>
+
+		<informalexample>
+<screen>
+$ <command>realm join --verbose ipa.example.com</command>
+</screen>
+		</informalexample>
+
+		<para>By specifying the <option>--verbose</option> it's easier
+		to see what went wrong if the join fails.</para>
+
+		<para>Other tools also use <command>realmd</command> which can
+		be used to perform the join operation, for example: GNOME
+		Control Center.</para>
+
+		<para>The join operation does the following:</para>
+		<itemizedlist>
+			<listitem><para>Discovers information about the domain.</para></listitem>
+			<listitem><para>Installs the necessary software to join the domain, such as SSSD.</para></listitem>
+			<listitem><para>Prompts for administrative credentials.</para></listitem>
+			<listitem><para>A computer account in the domain will be created, and or updated.</para></listitem>
+			<listitem><para>A host keytab file at <filename>/etc/krb5.keytab</filename> is created.</para></listitem>
+			<listitem><para>Configures the SSSD service, and restarts and enables it as appropriate.</para></listitem>
+			<listitem><para>Enables domain users in <filename>/etc/nsswitch.conf</filename></para></listitem>
+		</itemizedlist>
+
+		<para>In addition an IPA domain server's host name
+		or IP address may be specified to join via that domain controller
+		directly.</para>
+
+		<para>After the join operation is complete, domain accounts should
+		be usable locally, although logins using domain accounts are
+		not necessarily enabled.</para>
+
+		<para>You verify that domain accounts are working with with a
+		command like this:</para>
+
+		<informalexample>
+<screen>
+$ <command>getent passwd admin@ipa.example.com</command>
+</screen>
+		</informalexample>
+
+		<para>The join operation will create or update a computer account
+		in the domain.</para>
+
+	</section>
+
+	<section id="guide-ipa-permit">
+		<title>Logins using Domain Accounts</title>
+
+		<para>Once the
+		<link linkend="guide-ipa-join">computer is joined</link>
+		to a IPA domain, the machine will automatically follow the
+		domain settings for whether users are able to log into the
+		machine or not.</para>
+
+		<para>To override this behavior and permit any domain account
+		to log in, use the following command.</para>
+
+		<informalexample>
+<screen>
+$ <command>realm permit --realm domain.example.com --all</command>
+</screen>
+		</informalexample>
+
+		<para>To permit only specific accounts from the domain to log in
+		use the following command. The first time this command is run
+		it will change the mode to only allow logins by specific accounts,
+		and then add the specified accounts to the list of accounts
+		to permit.</para>
+
+		<informalexample>
+<screen>
+$ <command>realm permit --realm domain.example.com user1@ipa.example.com user2@ipa.example.com</command>
+</screen>
+		</informalexample>
+
+		<para>To deny logins from any domain account, use the following
+		command.</para>
+
+		<informalexample>
+<screen>
+$ <command>realm deny --realm domain.example.com --all</command>
+</screen>
+		</informalexample>
+
+	</section>
+
+</chapter>

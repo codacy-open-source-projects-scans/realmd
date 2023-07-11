@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Contributing to realmd{% endblock %}
+
+{% block content %}
+<h2>Installing dependencies</h2>
+
+<p>To build realmd you need the following installed, and their development
+packages where relevant:</p>
+
+<ul>
+<li>OpenLDAP libraries</li>
+<li>Kerberos libraries</li>
+<li>PolicyKit GObject library</li>
+<li>libxslt tools</li>
+<li>gettext</li>
+</ul>
+
+<p>In addition if you're building from git, you'll need to have the various
+tools like Autoconf, Automake, GCC, git and so on.</p>
+
+<p>On <b>Debian</b> or <b>Ubuntu</b> you can use the following command to
+install the dependencies:</p>
+
+<pre>$ sudo apt-get install build-essential autoconf automake gettext \
+         xmlto xsltproc libglib2.0-dev libpackagekit-glib2-dev \
+         libpolkit-gobject-1-dev libkrb5-dev libldap2-dev libsasl2-dev</pre>
+
+<p>On <b>Fedora</b> you can use the following command to install the
+dependencies:</p>
+
+<pre>$ sudo yum groupinstall "Development Tools"
+$ sudo yum install automake autoconf gettext xmlto xsltproc glib-devel \
+    polkit-devel krb5-devel openldap-devel \
+    cyrus-sasl-devel systemd-devel</pre>
+
+<p>There are some optional dependencies:</p>
+
+<ul>
+	<li>systemd: When available, install a systemd service file.</li>
+	<li>systemd-journal: When available logs output to the systemd journal
+	directly in order to pass additional logging context.</li>
+</ul>
+
+<h2>Getting the source code</h2>
+
+<p>Use git to get the source code like this:</p>
+
+<pre>$ git clone git://anongit.freedesktop.org/realmd/realmd</pre>
+
+<h2>Building</h2>
+
+<p>To build realmd, once you have the source and dependencies
+run commands like this. They may need to be adapted to your system:</p>
+
+<pre>$ sh autogen.sh --prefix=/usr --sysconfdir=/etc --libdir=/usr/lib64 \
+        --enable-strict --enable-debug
+$ make all
+$ make check</pre>
+
+<p>Besides the standard <tt>configure</tt> options like <tt>--prefix</tt>, the
+following realmd specific options are available:</p>
+
+<ul>
+	<li><tt>--with-distro=xxxx</tt>: Build for a specific distro</li>
+	<li><tt>--without-systemd-journal</tt>: Don't depend on the systemd journal</li>
+	<li><tt>--without-systemd-unit-dir</tt>: Don't install a systemd service file</li>
+	<li><tt>--enable-debug</tt>: Enable debug options during the build</li>
+	<li><tt>--enable-coverage</tt>: Build code coverage support</li>
+	<li><tt>--enable-doc</tt>: Build documentation</li>
+	<li><tt>--enable-strict</tt>: Build with warnings as errors</li>
+</ul>
+
+<h2>Coding Resources</h2>
+
+<ul>
+	<li><a href="http://www.freedesktop.org/software/realmd/internals/realmd-internals.html">Internal Documentation</a></li>
+</ul>
+
+<h2>Collaborating</h2>
+
+<ul>
+<li><a href="http://lists.freedesktop.org/mailman/listinfo/authentication">Mailing list</a></li>
+<li>IRC Channel: #realmd on freenode</li>
+<li><a href="https://bugs.freedesktop.org/enter_bug.cgi?product=realmd">Bugs</a> in Bugzilla</li>
+<li><a href="http://cgit.freedesktop.org/realmd/realmd/">Git repository</a></li>
+</ul>
+{% endblock %}
