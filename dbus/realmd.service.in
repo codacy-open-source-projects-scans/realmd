@@ -1,0 +1,27 @@
+[Unit]
+Description=Realm and Domain Configuration
+Documentation=man:realm(8) man:realmd.conf(5)
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.realmd
+ExecStart=@libexecdir@/realmd
+DevicePolicy=closed
+KeyringMode=private
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=no
+PrivateDevices=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=no
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+CacheDirectory=realmd

@@ -1,0 +1,579 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd"
+[
+<!ENTITY privatedir SYSTEM "privatedir.xml">
+]>
+
+<refentry id="realmd-conf">
+
+<refentryinfo>
+	<title>realmd.conf</title>
+	<productname>realmd</productname>
+	<authorgroup>
+		<author>
+			<contrib>Maintainer</contrib>
+			<firstname>Stef</firstname>
+			<surname>Walter</surname>
+			<email>stef@thewalter.net</email>
+		</author>
+	</authorgroup>
+</refentryinfo>
+
+<refmeta>
+	<refentrytitle>realmd.conf</refentrytitle>
+	<manvolnum>5</manvolnum>
+	<refmiscinfo class="manual">File Formats</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+	<refname>realmd.conf</refname>
+	<refpurpose>Tweak behavior of realmd</refpurpose>
+</refnamediv>
+
+<refsect1 id="realmd-conf-file">
+	<title>Configuration File</title>
+
+	<para><command>realmd</command> can be tweaked by network administrators
+	to act in specific ways. This is done by placing settings in a
+	<filename>/etc/realmd.conf</filename>. This file does not exist by
+	default. The syntax of this file is the same as an INI file or
+	Desktop Entry file. If the file is changed and
+	<command>realmd</command> is running <command>realmd</command> must be
+	restarted to read the new values.</para>
+
+	<para>In general, settings in this file only apply at the point of
+	joining a domain or realm. Once the realm has been setup the settings
+	have no effect. You may choose to configure
+	<ulink url="https://fedorahosted.org/sssd/">SSSD</ulink> or
+	<ulink url="http://www.samba.org/samba/docs/man/Samba-HOWTO-Collection/winbind.html">Winbind</ulink>
+	directly.</para>
+
+	<para>Only specify the settings you wish to override in the
+	<filename>/etc/realmd.conf</filename> file. Settings not specified will
+	be loaded from their packaged defaults which can be found in
+	<filename>&privatedir;/realmd-defaults.conf</filename> and
+	<filename>&privatedir;/realmd-distro.conf</filename>. Only override the
+	settings below. You may find other settings if you look through the
+	<command>realmd</command> source code. However these are not guaranteed
+	to remain stable.</para>
+
+	<para>There are various sections in the config file. Some sections are
+	global topic sections, and are listed below. Other sections are specific
+	to a given realm. These realm specific sections should always contain
+	the domain name in lower case as their section header.</para>
+
+	<para>Examples of each setting is found below, including the header
+	of the section it should be placed in. However in the resulting file
+	only include each section once, and combine the various section setting
+	together as lines underneath the section. For example</para>
+
+	<informalexample>
+<programlisting>
+[users]
+default-home = /home/%U
+default-shell = /bin/bash
+</programlisting>
+	</informalexample>
+</refsect1>
+
+<refsect1 id="realmd-conf-active-directory">
+	<title>active-directory</title>
+	<para>These options should go in an <option>[active-directory]</option>
+	section of the <filename>/etc/realmd.conf</filename> file. Only
+	specify the settings you wish to override.</para>
+
+	<variablelist>
+
+	<varlistentry>
+	<term><option>default-client</option></term>
+	<listitem>
+		<para>Specify the <option>default-client</option> setting in
+		order to control which client software is the preferred default
+		for use with Active Directory.</para>
+
+		<informalexample>
+<programlisting language="js">
+[active-directory]
+default-client = sssd
+# default-client = winbind
+
+</programlisting>
+		</informalexample>
+
+		<para>The default setting for this is
+		<option>sssd</option> which uses
+		<ulink url="https://fedorahosted.org/sssd/">SSSD</ulink> as
+		the Active Directory client. You can also specify
+		<option>winbind</option> to use
+		<ulink url="http://www.samba.org/samba/docs/man/Samba-HOWTO-Collection/winbind.html">Samba Winbind</ulink>.
+		</para>
+
+		<para>Some callers of <command>realmd</command> such as the
+		<citerefentry><refentrytitle>realm</refentrytitle>
+		<manvolnum>8</manvolnum></citerefentry>
+		command line tool allow specifying which client software should
+		be used. Others, such as GNOME Control Center, simplify choose
+		the default.</para>
+
+		<para>You can verify the preferred default client softawre by
+		running the following command. The realm with the preferred
+		client software will be listed first.</para>
+
+		<informalexample>
+<screen>
+$ <command>realm discover domain.example.com</command>
+domain.example.com
+  configured: no
+  server-software: active-directory
+  client-software: sssd
+  type: kerberos
+  realm-name: AD.THEWALTER.LAN
+  domain-name: ad.thewalter.lan
+domain.example.com
+  configured: no
+  server-software: active-directory
+  client-software: winbind
+  type: kerberos
+  realm-name: AD.THEWALTER.LAN
+  domain-name: ad.thewalter.lan
+</screen>
+		</informalexample>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>use-ldaps</option></term>
+	<listitem><para>Use the ldaps port when connecting to AD where possible.
+	In general this option is not needed because <command>realmd</command>
+	itself only read public information from the Active Directory domain
+	controller which is available anonymously. The supported membership
+	software products will use encrypted connections protected with
+	GSS-SPNEGO/GSSAPI which offers a comparable level of security than
+	ldaps. This option is only needed if the standard LDAP port (389/tcp)
+	is blocked by a firewall and only the LDAPS port (636/tcp) is
+	available.</para>
+
+	<para>If this option is set to <parameter>yes</parameter>
+	<command>realmd</command> will use the ldaps port when reading the
+	rootDSE and call the <command>adcli</command> membership software with
+	the option <option>--use-ldaps</option>. The Samba base membership
+	currently offers only deprecated ways to enable ldaps. Support will be
+	added in <command>realmd</command> when a new way is available.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>os-name</option></term>
+	<listitem><para>(see below)</para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>os-version</option></term>
+	<listitem>
+		<para>Specify the <option>os-name</option> and/or
+		<option>os-version</option> settings to control the values that
+		are placed in the computer account <option>operatingSystem</option> and
+		<option>operatingSystemVersion</option> attributes.</para>
+
+		<para>This is an Active Directory specific option.</para>
+
+		<para>It is also possible to use the <option>--os-name</option>
+		or <option>--os-version</option> argument of the
+		<command>realm</command> command to override the default
+		values.</para>
+
+		<informalexample>
+<programlisting language="js">
+[active-directory]
+os-name = Gentoo Linux
+os-version = 9.9.9.9.9
+</programlisting>
+		</informalexample>
+	</listitem>
+	</varlistentry>
+
+	</variablelist>
+
+</refsect1>
+
+<refsect1 id="realmd-conf-service">
+	<title>service</title>
+	<para>These options should go in an <option>[service]</option>
+	section of the <filename>/etc/realmd.conf</filename> file. Only
+	specify the settings you wish to override.</para>
+
+	<variablelist>
+
+	<varlistentry>
+	<term><option>automatic-install</option></term>
+	<listitem>
+		<para>Set this to <parameter>no</parameter> to disable automatic
+		installation of packages via package-kit.</para>
+
+		<informalexample>
+<programlisting language="js">
+[service]
+automatic-install = no
+# automatic-install = yes
+</programlisting>
+		</informalexample>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>legacy-samba-config</option></term>
+	<listitem>
+		<para>Set this to <parameter>yes</parameter> to create a Samba
+		configuration file with id-mapping options used by Samba-3.5
+		and earlier version.</para>
+
+		<informalexample>
+<programlisting language="js">
+[service]
+legacy-samba-config = no
+# legacy-samba-config = yes
+</programlisting>
+		</informalexample>
+	</listitem>
+	</varlistentry>
+
+	</variablelist>
+</refsect1>
+
+<refsect1 id="realmd-conf-users">
+	<title>users</title>
+
+	<para>These options should go in an <option>[users]</option>
+	section of the <filename>/etc/realmd.conf</filename> file. Only
+	specify the settings you wish to override.</para>
+
+	<variablelist>
+	<varlistentry>
+	<term><option>default-home</option></term>
+	<listitem>
+		<para>Specify the <option>default-home</option> setting in
+		order to control how to set the home directory for accounts
+		that have no home directory explicitly set.</para>
+
+		<informalexample>
+<programlisting language="js">
+[users]
+default-home = /home/%U@%D
+# default-home = /nfs/home/%D-%U
+# default-home = /home/%D/%U
+
+</programlisting>
+		</informalexample>
+
+		<para>The default setting for this is <option>/home/%U@%D</option>. The
+		<option>%D</option> format is replaced by the domain name. The <option>%U</option>
+		format is replaced by the user name.</para>
+
+		<para>You can verify the home directory for a user by running the
+		following command.</para>
+
+		<informalexample>
+<screen>
+$ <command>getent passwd 'DOMAIN/User'</command>
+DOMAIN\user:*:13445:13446:Name:/home/DOMAIN/user:/bin/bash
+</screen>
+		</informalexample>
+
+		<para>Note that in the case of IPA domains, most users already have a
+		home directory configured in the domain. Therefore this configuration
+		setting may rarely show through.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>default-shell</option></term>
+	<listitem>
+		<para>Specify the <option>default-shell</option> setting in
+		order to control how to set the Unix shell for accounts that
+		have no shell explicitly set.</para>
+
+		<informalexample>
+<programlisting language="js">
+[users]
+default-shell = /bin/bash
+# default-shell = /bin/sh
+
+</programlisting>
+		</informalexample>
+
+		<para>The default setting for this is <option>/bin/bash</option> shell. The
+		shell should be a valid shell if you expect the domain users be able to log
+		in. For example it should exist in the <filename>/etc/shells</filename> file.</para>
+
+		<para>You can verify the shell for a user by running the
+		following command.</para>
+
+		<informalexample>
+<screen>
+$ <command>getent passwd 'DOMAIN/User'</command>
+DOMAIN\user:*:13445:13446:Name:/home/DOMAIN/user:/bin/bash
+</screen>
+		</informalexample>
+
+		<para>Note that in the case of IPA domains, most users already have a
+		shell configured in the domain. Therefore this configuration setting
+		may rarely show through.</para>
+	</listitem>
+	</varlistentry>
+
+	</variablelist>
+
+</refsect1>
+
+<refsect1 id="realmd-conf-paths">
+	<title>paths</title>
+
+	<para>These options should go in an <option>[paths]</option>
+	section of the <filename>/etc/realmd.conf</filename> file. Only
+	specify the settings you wish to override.</para>
+
+	<variablelist>
+	<varlistentry>
+	<term><option>krb5.conf</option></term>
+	<listitem>
+		<para>Path to the Kerberos configuration file, typically
+		<filename>/etc/krb5.conf</filename>. It can also be the path of
+		a file included by <filename>/etc/krb5.conf</filename>, e.g.
+		<filename>/etc/krb5.conf.d/realmd_settings</filename>, if the
+		file does not exist if will be created.</para>
+
+		<informalexample>
+<programlisting language="js">
+[paths]
+krb5.conf = /etc/krb5.conf.d/realmd_settings
+
+</programlisting>
+		</informalexample>
+
+		<para>When joining an Active Directory domain
+		<command>realmd</command> will set the
+		<option>default_realm</option> and
+		<option>udp_preference_limit</option> options in the Kerberos
+		configuration:</para>
+
+		<informalexample>
+<programlisting language="js">
+default_realm = DOMAIN.EXAMPLE.COM
+udp_preference_limit = 0
+
+</programlisting>
+		</informalexample>
+
+		<para>The <option>default_realm</option> option is e.g. needed
+		when trying to resolve enterprise principals and makes it more
+		convenient to request Kerberos tickets for users of the default
+		realm. Instead of specifying the whole principal just
+		<command>kinit username</command> can be used.</para>
+
+		<para>With <option>udp_preference_limit = 0</option> always TCP
+		will be used to send Kerberos request to domain controller. This
+		is useful in Active Directory environments because Kerberos will
+		typically switch to TCP after initially starting with UDP
+		because AD Kerberos tickets are often larger than UDP can handle.
+		Using TCP by default will avoid those extra UDP round trips.
+		Additionally it helps to avoid issues with password changes when
+		the DC does not reply soon enough and the client will send a
+		second UDP request. The DC might reply with a reply error to the
+		second request although the original password change request was
+		successful and the client will no know if the request was
+		successful or not. When using TCP this cannot happen because the
+		client will never send a second request but waits on the
+		connection until the server replies.</para>
+
+		<para>Please note that <command>realmd</command> will not remove
+		those options while leaving the domain since they are useful in
+		general. When joining a new domain <command>realmd</command>
+		will of course overwrite <option>default_realm</option>.</para>
+	</listitem>
+	</varlistentry>
+	</variablelist>
+</refsect1>
+
+<refsect1 id="realmd-conf-specific-settings">
+	<title>Realm specific settings</title>
+	<para>These options should go in an section with the same name
+	as the realm in the <filename>/etc/realmd.conf</filename> file.
+	For example for the <option>domain.example.com</option> domain
+	the section would be called <option>[domain.example.com]</option>.
+	To figure out the canonical name for a realm use the
+	<command>realm</command> command:</para>
+
+	<informalexample>
+<screen>
+$ <command>realm discover --name-only DOMAIN.example.com</command>
+domain.example.com
+...
+</screen>
+	</informalexample>
+
+	<para>Only specify the settings you wish to override.</para>
+
+	<variablelist>
+
+	<varlistentry>
+	<term><option>computer-ou</option></term>
+	<listitem>
+		<para>Specify this option to create directory computer accounts
+		in a location other than the default. This currently only works
+		with Active Directory domains.</para>
+
+		<informalexample>
+<programlisting>
+[domain.example.com]
+computer-ou = OU=Linux Computers,DC=domain,DC=example,DC=com
+# computer-ou = OU=Linux Computers,
+
+</programlisting>
+		</informalexample>
+
+		<para>Specify the OU as an LDAP DN. It can be relative to the
+		Root DSE, or a complete LDAP DN. Obviously the OU must exist
+		in the directory.</para>
+
+		<para>It is also possible to use the <option>--computer-ou</option>
+		argument of the <command>realm</command> command to
+		create a computer account at a specific OU.</para>
+	</listitem>
+	</varlistentry>
+	<varlistentry>
+	<term><option>computer-name</option></term>
+	<listitem>
+		<para>This option only applied to Active Directory realms. Specify this
+		option to override the default name used when creating the computer
+		account. The system's FQDN will still be saved in the dNSHostName attribute.</para>
+		<informalexample>
+<programlisting language="js">
+[domain.example.com]
+computer-name = SERVER01
+</programlisting>
+		</informalexample>
+
+		<para>Specify the name as a string of 15 or fewer characters that is
+		a valid NetBIOS computer name.</para>
+
+		<para>It is also possible to use the <option>--computer-name</option>
+		argument of the <command>realm</command> command to override the default
+		computer account name.</para>
+	</listitem>
+	</varlistentry>
+	<varlistentry>
+	<term><option>user-principal</option></term>
+	<listitem>
+		<para>Set the <option>user-principal</option> to <code>yes</code>
+		to create <option>userPrincipalName</option> attribute for the
+		computer accounts in the realm. The exact value depends on the
+		defaults of the used membership software. To have full control
+		over the value please use the
+		<option>--user-principal</option> option of the
+		<command>realm</command> command, see
+		<citerefentry><refentrytitle>realm</refentrytitle>
+		<manvolnum>8</manvolnum></citerefentry> for details.</para>
+
+		<informalexample>
+<programlisting language="js">
+[domain.example.com]
+user-principal = yes
+</programlisting>
+		</informalexample>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>automatic-join</option></term>
+	<listitem>
+		<para>This option only applies to Active Directory realms. This option
+		is off by default. In Active Directory domains, a computer account can
+		be preset with a known computer account password. This can be used for
+		automatic joins without authentication.</para>
+
+		<para>When automatic joins are used there is no mutual authentication
+		between the machine and the domain during the join process.</para>
+
+		<informalexample>
+<programlisting>
+[domain.example.com]
+automatic-join = yes
+</programlisting>
+		</informalexample>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>automatic-id-mapping</option></term>
+	<listitem>
+		<para>This option is on by default for Active Directory realms.
+		Turn it off to use UID and GID information stored in the
+		directory (as-per RFC2307) rather than automatically generating
+		UID and GID numbers.</para>
+
+		<para>This option only makes sense for Active Directory
+		realms.</para>
+
+		<informalexample>
+<programlisting>
+[domain.example.com]
+automatic-id-mapping = no
+# automatic-id-mapping = yes
+</programlisting>
+		</informalexample>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>manage-system</option></term>
+	<listitem>
+		<para>This option is on by default. Normally joining a realm
+		affects many aspects of the configuration and management of the
+		system. Turning this off limits the interaction with the realm
+		or domain to authentication and identity.</para>
+
+		<informalexample>
+<programlisting>
+[domain.example.com]
+manage-system = no
+# manage-system = yes
+
+</programlisting>
+		</informalexample>
+
+		<para>When this option is turned on <command>realmd</command>
+		defaults to using domain policy to control who can log into
+		this machine. Further adjustments to login policy can be made
+		with the <command>realm permit</command> command.</para>
+	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term><option>fully-qualified-names</option></term>
+	<listitem>
+		<para>This option is on by default. If turned off then realm
+		user and group names are not qualified their name. This may
+		cause them to conflict with local user and group names.</para>
+
+		<informalexample>
+<programlisting>
+[domain.example.com]
+fully-qualified-names = no
+# fully-qualified-names = yes
+</programlisting>
+		</informalexample>
+	</listitem>
+	</varlistentry>
+
+	</variablelist>
+</refsect1>
+
+<refsect1 id='realmd_conf_see_also'>
+	<title>SEE ALSO</title>
+
+	<para><citerefentry><refentrytitle>realm</refentrytitle>
+	<manvolnum>8</manvolnum></citerefentry></para>
+</refsect1>
+
+</refentry>

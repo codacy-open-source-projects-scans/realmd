@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+               "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
+[
+  <!ENTITY % local.common.attrib "xmlns:xi  CDATA  #FIXED 'http://www.w3.org/2003/XInclude'">
+  <!ENTITY version SYSTEM "version.xml">
+]>
+<book id="index">
+	<bookinfo>
+		<title>realmd</title>
+		<releaseinfo>for &version;</releaseinfo>
+	</bookinfo>
+
+	<part id="guide">
+		<title>Administrative Guide</title>
+		<chapter id="realm-manual">
+			<title>Command manual pages</title>
+			<xi:include href="realm.xml"/>
+			<xi:include href="realmd.conf.xml"/>
+		</chapter>
+
+		<xi:include href="realmd-guide-active-directory.xml"/>
+		<xi:include href="realmd-guide-ipa.xml"/>
+		<xi:include href="realmd-guide-kerberos.xml"/>
+
+		<chapter id="guide-integration">
+			<title>Integration</title>
+			<para>Not yet written</para>
+		</chapter>
+	</part>
+
+	<part id="development">
+		<title>Developer Reference</title>
+		<chapter id="dbus-interface-reference">
+			<title>DBus Interface Reference</title>
+			<xi:include href="realmd-org.freedesktop.realmd.Provider.xml"/>
+			<xi:include href="realmd-org.freedesktop.realmd.Realm.xml"/>
+			<xi:include href="realmd-org.freedesktop.realmd.Kerberos.xml"/>
+			<xi:include href="realmd-org.freedesktop.realmd.KerberosMembership.xml"/>
+			<xi:include href="realmd-org.freedesktop.realmd.Service.xml"/>
+		</chapter>
+		<chapter id="dbus-interface-raw">
+			<title>Raw DBus Interfaces</title>
+			<para>These are the current raw DBus interfaces for realmd.</para>
+			<programlisting role="rawhtml">
+<?dbhtml-include href="realmd-org.freedesktop.realmd.xml"?>
+			</programlisting>
+		</chapter>
+	</part>
+
+</book>
