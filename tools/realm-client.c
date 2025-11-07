@@ -17,6 +17,7 @@
 #include "realm.h"
 #include "realm-client.h"
 #include "realm-dbus-constants.h"
+#include "service/realm-kerberos-helper.h"
 
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
@@ -287,8 +288,8 @@ realm_client_new_installer (gboolean verbose,
 	socket = g_socket_new_from_fd (pair[0], &error);
 	if (error != NULL) {
 		realm_handle_error (error, _("Couldn't create socket"));
-		close(pair[0]);
-		close(pair[1]);
+		close (pair[0]);
+		close (pair[1]);
 		return NULL;
 	}
 
@@ -296,11 +297,12 @@ realm_client_new_installer (gboolean verbose,
 	               G_SPAWN_LEAVE_DESCRIPTORS_OPEN | G_SPAWN_DO_NOT_REAP_CHILD,
 	               NULL, NULL, &pid, &error);
 
-	close(pair[1]);
+	close (pair[1]);
 
 	if (error != NULL) {
 		realm_handle_error (error, _("Couldn't run realmd"));
-		close(pair[0]);
+		close (pair[0]);
+		g_object_unref (socket);
 		return NULL;
 	}
 
@@ -542,7 +544,7 @@ propagate_krb5_error (GError **dest,
 	if (code != 0) {
 		if (format)
 			g_string_append (message, ": ");
-		g_string_append (message, krb5_get_error_message (context, code));
+		g_string_append (message, realm_krb5_get_error_message (context, code));
 	}
 
 	g_set_error_literal (dest, g_quark_from_static_string ("krb5"),
@@ -613,7 +615,8 @@ copy_to_ccache (krb5_context krb5,
 
 	code = krb5_cc_default (krb5, &def_ccache);
 	if (code != 0) {
-		g_debug ("krb5_cc_default failed: %s", krb5_get_error_message (krb5, code));
+		g_debug ("krb5_cc_default failed: %s",
+		         realm_krb5_get_error_message (krb5, code));
 		return FALSE;
 	}
 
@@ -636,13 +639,15 @@ copy_to_ccache (krb5_context krb5,
 		g_debug ("no matching principal found in %s", krb5_cc_default_name (krb5));
 		return FALSE;
 	} else if (code != 0) {
-		g_debug ("krb5_cc_retrieve_cred failed: %s", krb5_get_error_message (krb5, code));
+		g_debug ("krb5_cc_retrieve_cred failed: %s",
+		         realm_krb5_get_error_message (krb5, code));
 		return FALSE;
 	}
 
 	code = krb5_cc_initialize (krb5, ccache, creds.client);
 	if (code != 0) {
-		g_debug ("krb5_cc_initialize failed: %s", krb5_get_error_message (krb5, code));
+		g_debug ("krb5_cc_initialize failed: %s",
+		         realm_krb5_get_error_message (krb5, code));
 		return FALSE;
 	}
 
@@ -650,7 +655,8 @@ copy_to_ccache (krb5_context krb5,
 	krb5_free_cred_contents (krb5, &creds);
 
 	if (code != 0) {
-		g_debug ("krb5_cc_store_cred failed: %s", krb5_get_error_message (krb5, code));
+		g_debug ("krb5_cc_store_cred failed: %s",
+		         realm_krb5_get_error_message (krb5, code));
 		return FALSE;
 	}
 
@@ -770,11 +776,14 @@ build_ccache_credential (const gchar *user_name,
 	if (ccache) {
 		ret = copy_or_kinit_to_ccache (krb5, ccache, user_name, realm_name, error);
 		krb5_cc_close (krb5, ccache);
-		krb5_free_context (krb5);
 	}
+	krb5_free_context (krb5);
 
-	if (!ret)
+	if (!ret) {
+		g_unlink (filename);
+		g_free (filename);
 		return NULL;
+	}
 
 	result = read_file_into_variant (filename);
 

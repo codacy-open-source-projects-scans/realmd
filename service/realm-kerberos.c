@@ -24,6 +24,7 @@
 #include "realm-errors.h"
 #include "realm-invocation.h"
 #include "realm-kerberos.h"
+#include "realm-kerberos-helper.h"
 #include "realm-kerberos-membership.h"
 #include "realm-login-name.h"
 #include "realm-options.h"
@@ -65,21 +66,21 @@ G_DEFINE_TYPE (RealmKerberos, realm_kerberos, G_TYPE_DBUS_OBJECT_SKELETON);
 #define return_if_krb5_failed(ctx, code) G_STMT_START \
 	if G_LIKELY ((code) == 0) { } else { \
 		g_warn_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC, \
-		                krb5_get_error_message ((ctx), (code))); \
+		                realm_krb5_get_error_message ((ctx), (code))); \
 		 return; \
 	} G_STMT_END
 
 #define return_val_if_krb5_failed(ctx, code, val) G_STMT_START \
 	if G_LIKELY ((code) == 0) { } else { \
 		g_warn_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC, \
-		                krb5_get_error_message ((ctx), (code))); \
+		                realm_krb5_get_error_message ((ctx), (code))); \
 		 return (val); \
 	} G_STMT_END
 
 #define warn_if_krb5_failed(ctx, code) G_STMT_START \
 	if G_LIKELY ((code) == 0) { } else { \
 		g_warn_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC, \
-		                krb5_get_error_message ((ctx), (code))); \
+		                realm_krb5_get_error_message ((ctx), (code))); \
 	} G_STMT_END
 
 typedef struct {
@@ -300,7 +301,7 @@ join_or_leave (RealmKerberos *self,
 {
 	RealmKerberosMembershipIface *iface = REALM_KERBEROS_MEMBERSHIP_GET_IFACE (self);
 	RealmKerberosMembership *membership = REALM_KERBEROS_MEMBERSHIP (self);
-	RealmCredential *cred;
+	RealmCredential *cred = NULL;
 	MethodClosure *method;
 	GError *error = NULL;
 
@@ -317,6 +318,7 @@ join_or_leave (RealmKerberos *self,
 	cred = realm_credential_parse (credential, &error);
 	if (error != NULL) {
 		g_dbus_method_invocation_return_gerror (invocation, error);
+		realm_credential_unref (cred);
 		g_error_free (error);
 		return;
 	}
@@ -331,6 +333,8 @@ join_or_leave (RealmKerberos *self,
 	if (!realm_invocation_lock_daemon (invocation)) {
 		g_dbus_method_invocation_return_error (invocation, REALM_ERROR, REALM_ERROR_BUSY,
 		                                       _("Already running another action"));
+		realm_credential_unref (cred);
+		g_error_free (error);
 		return;
 	}
 
@@ -400,6 +404,60 @@ handle_leave (RealmDbusKerberosMembership *membership,
 	}
 
 	join_or_leave (self, credentials, options, invocation, FALSE);
+	return TRUE;
+}
+
+static void
+on_renew_complete (GObject *source,
+                   GAsyncResult *result,
+                   gpointer user_data)
+{
+	MethodClosure *closure = user_data;
+	RealmKerberosMembershipIface *iface;
+	GCancellable *cancellable;
+	GError *error = NULL;
+
+	iface = REALM_KERBEROS_MEMBERSHIP_GET_IFACE (closure->self);
+	g_return_if_fail (iface->renew_finish != NULL);
+
+	cancellable = realm_invocation_get_cancellable (closure->invocation);
+	if (!g_cancellable_set_error_if_cancelled (cancellable, &error))
+		(iface->leave_finish) (REALM_KERBEROS_MEMBERSHIP (closure->self), result, &error);
+
+	unenroll_method_reply (closure->invocation, error);
+
+	g_clear_error (&error);
+	method_closure_free (closure);
+}
+
+static gboolean
+handle_renew (RealmDbusKerberosMembership *dbus_membership,
+               GDBusMethodInvocation *invocation,
+               GVariant *options,
+               gpointer user_data)
+{
+	MethodClosure *method;
+	RealmKerberos *self = REALM_KERBEROS (user_data);
+	RealmKerberosMembershipIface *iface = REALM_KERBEROS_MEMBERSHIP_GET_IFACE (self);
+	RealmKerberosMembership *membership = REALM_KERBEROS_MEMBERSHIP (self);
+
+	if (!realm_invocation_lock_daemon (invocation)) {
+		g_dbus_method_invocation_return_error (invocation, REALM_ERROR, REALM_ERROR_BUSY,
+		                                       _("Already running another action"));
+		return TRUE;
+	}
+
+	if (iface->renew_async == NULL || iface->renew_finish == NULL) {
+		g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+		                                       G_DBUS_ERROR_UNKNOWN_METHOD,
+		                                       "Renew is currently not impemented.");
+		return TRUE;
+	}
+
+	method = method_closure_new (self, invocation);
+
+	(iface->renew_async) (membership, options, invocation, on_renew_complete, method);
+
 	return TRUE;
 }
 
@@ -563,6 +621,8 @@ realm_kerberos_constructed (GObject *obj)
 		                  G_CALLBACK (handle_join), self);
 		g_signal_connect (self->pv->membership_iface, "handle-leave",
 		                  G_CALLBACK (handle_leave), self);
+		g_signal_connect (self->pv->membership_iface, "handle-renew",
+		                  G_CALLBACK (handle_renew), self);
 		g_dbus_object_skeleton_add_interface (G_DBUS_OBJECT_SKELETON (self),
 		                                      G_DBUS_INTERFACE_SKELETON (self->pv->membership_iface));
 
@@ -799,7 +859,7 @@ set_krb5_error (GError **error,
 	va_end (va);
 
 	g_set_error (error, REALM_KRB5_ERROR, code,
-	             "%s: %s", string, krb5_get_error_message (context, code));
+	             "%s: %s", string, realm_krb5_get_error_message (context, code));
 	g_free (string);
 }
 
@@ -1067,7 +1127,7 @@ flush_keytab_entries (krb5_context ctx,
 			count = 0;
 		}
 
-		code = krb5_kt_free_entry (ctx, &entry);
+		code = krb5_free_keytab_entry_contents (ctx, &entry);
 		return_val_if_krb5_failed (ctx, code, FALSE);
 	}
 
@@ -1175,13 +1235,13 @@ realm_kerberos_get_netbios_name_from_keytab (const gchar *realm_name)
 				                && name_data->data[name_data->length - 1] == '$') {
 					netbios_name = g_strndup (name_data->data, name_data->length - 1);
 					if (netbios_name == NULL) {
-						code = krb5_kt_free_entry (ctx, &entry);
+						code = krb5_free_keytab_entry_contents (ctx, &entry);
 						warn_if_krb5_failed (ctx, code);
 						break;
 					}
 				}
 			}
-			code = krb5_kt_free_entry (ctx, &entry);
+			code = krb5_free_keytab_entry_contents (ctx, &entry);
 			warn_if_krb5_failed (ctx, code);
 		}
 	}

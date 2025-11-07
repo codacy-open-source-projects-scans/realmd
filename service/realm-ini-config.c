@@ -650,6 +650,7 @@ realm_ini_config_read_file (RealmIniConfig *self,
 
 	if (err != NULL) {
 		g_propagate_error (error, err);
+		g_free (contents);
 		return FALSE;
 	}
 
@@ -690,6 +691,21 @@ realm_ini_config_write_file (RealmIniConfig *self,
 	 * write an empty file.
 	 */
 	if (length > 0 || g_file_test (filename, G_FILE_TEST_EXISTS)) {
+		gchar *dirname;
+		gint rc;
+
+		dirname = g_path_get_dirname (filename);
+		if (dirname == NULL) {
+			g_bytes_unref (bytes);
+			return FALSE;
+		}
+
+		rc = g_mkdir_with_parents (dirname, S_IRWXU | S_IRGRP | S_IXGRP);
+		g_free (dirname);
+		if (rc != 0) {
+			g_bytes_unref (bytes);
+			return FALSE;
+		}
 
 		if (self->flags & REALM_INI_PRIVATE)
 			mask = umask (S_IRWXG | S_IRWXO);
